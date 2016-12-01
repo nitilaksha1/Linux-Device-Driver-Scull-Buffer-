@@ -14,7 +14,7 @@ EXTRA_CFLAGS += -I$(LDDINC)
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-scullb-objs := main.o buffer.o
+scullb-objs := main.o
 
 obj-m	:= scullb.o
 
