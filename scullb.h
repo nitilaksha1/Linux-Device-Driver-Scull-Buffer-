@@ -47,10 +47,15 @@
 #endif
 
 /*
- * The buffer device is a simple circular buffer. Here its default size
+ * The buffer device is a simple circular buffer. Here its item default size
  */
-#ifndef SCULL_B_BUFFER
-#define SCULL_B_BUFFER 4000
+
+#ifndef SCULL_B_ITEM_SIZE
+#define SCULL_B_ITEM_SIZE 32
+#endif
+
+#ifndef NO_READERS
+#define NO_READERS 2
 #endif
 
 /*

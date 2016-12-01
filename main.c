@@ -52,7 +52,6 @@ struct scull_buffer {
 
 /* parameters */
 static int scull_b_nr_devs = SCULL_B_NR_DEVS;	/* number of buffer devices */
-int scull_b_buffer =  SCULL_B_BUFFER;	/* buffer size */
 dev_t scull_b_devno;			/* Our first device number */
 
 static struct scull_buffer *scull_b_devices;
@@ -63,11 +62,12 @@ static int spacefree(struct scull_buffer *dev);
 
 int scull_major =   SCULL_MAJOR;
 int scull_minor =   0;
+int nitems 		= 	20;
 
 module_param(scull_major, int, S_IRUGO);
 module_param(scull_minor, int, S_IRUGO);
 module_param(scull_b_nr_devs, int, 0);	/* FIXME check perms */
-module_param(scull_b_buffer, int, 0);
+module_param(nitems, int, 0);
 
 MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -86,13 +86,13 @@ static int scull_b_open(struct inode *inode, struct file *filp)
 		return -ERESTARTSYS;
 	if (!dev->buffer) {
 		/* allocate the buffer */
-		dev->buffer = kmalloc(scull_b_buffer, GFP_KERNEL);
+		dev->buffer = kmalloc(nitems * SCULL_B_ITEM_SIZE, GFP_KERNEL);
 		if (!dev->buffer) {
 			up(&dev->sem);
 			return -ENOMEM;
 		}
 	}
-	dev->buffersize = scull_b_buffer;
+	dev->buffersize = nitems * SCULL_B_ITEM_SIZE;
 	dev->end = dev->buffer + dev->buffersize;
 	dev->rp = dev->wp = dev->buffer; /* rd and wr from the beginning */
 
@@ -139,6 +139,11 @@ static ssize_t scull_b_read(struct file *filp, char __user *buf, size_t count, l
 		up(&dev->sem); /* release the lock */
 		if (filp->f_flags & O_NONBLOCK)
 			return -EAGAIN;
+
+		/*If the buffer is empty and no producer have scullbuffer open*/
+		if (!dev->nwriters)
+			return 0;
+
 		PDEBUG("\"%s\" reading: going to sleep\n", current->comm);
 		if (wait_event_interruptible(dev->inq, (dev->rp != dev->wp)))
 			return -ERESTARTSYS; /* signal: tell the fs layer to handle it */
@@ -176,6 +181,11 @@ static int scull_getwritespace(struct scull_buffer *dev, struct file *filp)
 		up(&dev->sem);
 		if (filp->f_flags & O_NONBLOCK)
 			return -EAGAIN;
+
+		/*Buffer is full and no consumers have opened scullbuffer*/
+		if (!dev->nreaders)
+			return NO_READERS;
+
 		PDEBUG("\"%s\" writing: going to sleep\n",current->comm);
 		prepare_to_wait(&dev->outq, &wait, TASK_INTERRUPTIBLE);
 		if (spacefree(dev) == 0)
@@ -208,6 +218,11 @@ static ssize_t scull_b_write(struct file *filp, const char __user *buf, size_t c
 
 	/* Make sure there's space to write */
 	result = scull_getwritespace(dev, filp);
+
+	/*In case no consumers are present to free the buffer*/
+	if (result == NO_READERS)
+		return 0;
+
 	if (result)
 		return result; /* scull_getwritespace called up(&dev->sem) */
 
