@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
 	}
 
 	//Open the file in write mode
-	fd = open("/dev/scullpipe0", O_WRONLY);
+	fd = open("/dev/scullbbuffer", O_WRONLY);
 
 	if (fd == -1) {
 		#ifdef DEBUG

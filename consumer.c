@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 
 	//Open the file in write mode
 	//Which scullbuffer device to open from 0-3????
-	fd = open("/dev/scullpipe0", O_RDONLY);
+	fd = open("/dev/scullbbuffer", O_RDONLY);
 
 	if (fd == -1) {
 		#ifdef DEBUG
