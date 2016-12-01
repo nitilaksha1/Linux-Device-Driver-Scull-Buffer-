@@ -1,5 +1,5 @@
 /*
- * scull.h -- definitions for the char module
+ * scullb.h -- definitions for the char module
  *
  * Copyright (C) 2001 Alessandro Rubini and Jonathan Corbet
  * Copyright (C) 2001 O'Reilly & Associates
@@ -15,8 +15,8 @@
  * $Id: scull.h,v 1.15 2004/11/04 17:51:18 rubini Exp $
  */
 
-#ifndef _SCULL_H_
-#define _SCULL_H_
+#ifndef _SCULLB_H_
+#define _SCULLB_H_
 
 /*
  * Macros to help debugging
