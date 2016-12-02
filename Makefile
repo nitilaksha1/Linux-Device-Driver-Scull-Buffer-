@@ -23,12 +23,21 @@ else
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
 
+all: modules consumer producer
+
+consumer: consumer.c
+	gcc -Werror -Wall -Wextra consumer.c -o consumer
+
+producer: producer.c
+	gcc -Werror -Wall -Wextra producer.c -o producer
+
 modules:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) LDDINC=$(PWD)/../include modules
 endif
 
 clean:
 	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions
+	rm producer consumer
 
 depend .depend dep:
 	$(CC) $(CFLAGS) -M *.c > .depend

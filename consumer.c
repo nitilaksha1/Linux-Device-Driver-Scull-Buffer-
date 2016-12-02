@@ -55,6 +55,7 @@ int main(int argc, char **argv) {
 
 		if (res < 0) {
 			//Should we exit??
+			goto cleanup;
 		}
 
 		#ifdef DEBUG
@@ -64,7 +65,8 @@ int main(int argc, char **argv) {
 	}
 
 	//free the buffer
-	cleanup: free(buffer);
+cleanup:
+	free(buffer);
 	close(fd);
 
 	return 0;

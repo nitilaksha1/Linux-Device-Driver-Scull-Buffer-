@@ -55,6 +55,7 @@ int main(int argc, char **argv) {
 		#endif
 
 		if (!res)
+			goto cleanup;
 			//Should we exit or continue to write the next item
 
 		if (res < 0)
@@ -64,7 +65,8 @@ int main(int argc, char **argv) {
 	}
 
 	//free the buffer
-	cleanup: free(buffer);
+cleanup:
+	free(buffer);
 	close(fd);
 
 	return 0;
