@@ -34,7 +34,7 @@
 
 #include <linux/uaccess.h>	/* copy_*_user */
 
-#include "scullb.h"		/* local definitions */
+#include "scullbuffer.h"	/* local definitions */
 
 /*
  * Our parameters which can be set at load time.
@@ -331,9 +331,9 @@ int scull_b_init_module(void)
  */
 	if (scull_major) {
 		dev = MKDEV(scull_major, scull_minor);
-		result = register_chrdev_region(dev, scull_b_nr_devs, "scullb");
+		result = register_chrdev_region(dev, scull_b_nr_devs, "scullbuffer");
 	} else {
-		result = alloc_chrdev_region(&dev, scull_minor, scull_b_nr_devs, "scullb");
+		result = alloc_chrdev_region(&dev, scull_minor, scull_b_nr_devs, "scullbuffer");
 		scull_major = MAJOR(dev);
 	}
 	if (result < 0) {
