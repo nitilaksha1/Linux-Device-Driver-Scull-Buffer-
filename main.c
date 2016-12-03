@@ -113,8 +113,13 @@ static int scull_b_release(struct inode *inode, struct file *filp)
 	down(&dev->sem);
 	if (filp->f_mode & FMODE_READ)
 		dev->nreaders--;
-	if (filp->f_mode & FMODE_WRITE)
+	if (filp->f_mode & FMODE_WRITE) {
 		dev->nwriters--;
+		if (dev->nwriters == 0) {
+			/* last writer, wake up any readers */
+			wake_up_interruptible_all(&dev->inq);
+		}
+	}
 	if (dev->nreaders + dev->nwriters == 0) {
 		kfree(dev->buffer);
 		dev->buffer = NULL; /* the other fields are not checked on open */
@@ -145,7 +150,7 @@ static ssize_t scull_b_read(struct file *filp, char __user *buf, size_t count, l
 			return 0;
 
 		PDEBUG("\"%s\" reading: going to sleep\n", current->comm);
-		if (wait_event_interruptible(dev->inq, (dev->rp != dev->wp)))
+		if (wait_event_interruptible(dev->inq, ((dev->rp != dev->wp) || (dev->nwriters == 0))))
 			return -ERESTARTSYS; /* signal: tell the fs layer to handle it */
 		/* otherwise loop, but first reacquire the lock */
 		if (down_interruptible(&dev->sem))
