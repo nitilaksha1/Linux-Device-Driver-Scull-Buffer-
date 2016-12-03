@@ -7,14 +7,14 @@
 #include<sys/stat.h>
 #include<fcntl.h>
 
-#define DEBUG 1
+//#define DEBUG 1
 #define ITEM_SIZE 32
 
 int main(int argc, char **argv) {
 
-	int fd, noofitems = 0, res;
+	int fd, fd1, noofitems = 0, res;
 	char * buffer = NULL;
-
+	
 	if (argc != 2) {
 		#ifdef DEBUG
 		printf("\r\nToo few arguments to producer\r\n");
@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
 		#ifdef DEBUG
 		printf("\r\nFailed to open the device %d\r\n", errno);
 		#endif
-		return 0;
+		goto cleanup;
 	}
 
 	sleep(3);
@@ -40,6 +40,18 @@ int main(int argc, char **argv) {
 	
 	noofitems = atoi(argv[1]);
 
+	//Deleting the file before every execution
+	unlink("cons.log");
+
+	fd1 = open("cons.log", O_WRONLY|O_CREAT, 0740);
+
+	if (fd1 == -1) {
+		#ifdef DEBUG
+		printf("\r\nFailed to open the conslog file\r\n");
+		#endif
+		goto cleanup;
+	}
+
 	//Write the required number of items into the scull buffer
 	for (int i = 0; i < noofitems; i++) {
 	
@@ -48,7 +60,10 @@ int main(int argc, char **argv) {
 		#endif
 
 		res = read (fd, buffer, ITEM_SIZE);
-		
+
+		if (res == ITEM_SIZE)	
+			write (fd1, buffer, strlen(buffer));
+	
 		if (!res) {
 			//Should we exit or continue to write the next item
 		}
@@ -68,6 +83,7 @@ int main(int argc, char **argv) {
 cleanup:
 	free(buffer);
 	close(fd);
+	close(fd1);
 
 	return 0;
 }
