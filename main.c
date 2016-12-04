@@ -92,7 +92,7 @@ static int scull_b_open(struct inode *inode, struct file *filp)
 			return -ENOMEM;
 		}
 	}
-	dev->buffersize = nitems * SCULL_B_ITEM_SIZE;
+	dev->buffersize = (nitems+1) * SCULL_B_ITEM_SIZE;
 	dev->end = dev->buffer + dev->buffersize;
 	dev->rp = dev->wp = dev->buffer; /* rd and wr from the beginning */
 
@@ -156,11 +156,7 @@ static ssize_t scull_b_read(struct file *filp, char __user *buf, size_t count, l
 		if (down_interruptible(&dev->sem))
 			return -ERESTARTSYS;
 	}
-	/* ok, data is there, return something */
-	if (dev->wp > dev->rp)
-		count = min(count, (size_t)(dev->wp - dev->rp));
-	else /* the write pointer has wrapped, return data up to dev->end */
-		count = min(count, (size_t)(dev->end - dev->rp));
+
 	if (copy_to_user(buf, dev->rp, count)) {
 		up (&dev->sem);
 		return -EFAULT;
@@ -210,7 +206,7 @@ static int spacefree(struct scull_buffer *dev)
 {
 	if (dev->rp == dev->wp)
 		return dev->buffersize - 1;
-	return ((dev->rp + dev->buffersize - dev->wp) % dev->buffersize) - 1;
+	return ((dev->rp + dev->buffersize - dev->wp) % dev->buffersize) - SCULL_B_ITEM_SIZE;
 }
 
 static ssize_t scull_b_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
@@ -231,12 +227,6 @@ static ssize_t scull_b_write(struct file *filp, const char __user *buf, size_t c
 	if (result)
 		return result; /* scull_getwritespace called up(&dev->sem) */
 
-	/* ok, space is there, accept something */
-	count = min(count, (size_t)spacefree(dev));
-	if (dev->wp >= dev->rp)
-		count = min(count, (size_t)(dev->end - dev->wp)); /* to end-of-buf */
-	else /* the write pointer has wrapped, fill up to rp-1 */
-		count = min(count, (size_t)(dev->rp - dev->wp - 1));
 	PDEBUG("Going to accept %li bytes to %p from %p\n", (long)count, dev->wp, buf);
 	if (copy_from_user(dev->wp, buf, count)) {
 		up (&dev->sem);
