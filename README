@@ -1,0 +1,14 @@
+
+Running Instructions:
+-----------------------
+1. Make sure that the device is unloaded or the device with same name doesn't exist. Type "sudo ./scull_unload".
+2. Load the scull buffer using command "sudo ./scull_load". This will create a device called /dev/scullbuffer.
+3. In case the number of items have to be specified by the user then type "sudo ./scull_load <nitems>" where nitems is a placeholder.
+4. Type make command to compile all relevant files.
+5. The test cases are present in a file called testcase.sh. This script takes the test case number as the parameter. To execute a test case type "./testcase.sh <testcasenumber>" where <testcasenumber> is placeholde for testcase number.
+
+Output Format:
+----------------
+
+->The producers each write the item they have produced into their respective log files. The log file of a producer has the following format: Prod<third-arg>.log where the <third-arg> is the parameter passed to the producer which is the name of item that a particular producer will produce. For example: if producer writes items called "blue" then its output would be in file Prodblue.log.
+->The consumers each write the item they have consumed into their respective log files. The log file of a consumer has the following format: Cons<second-arg>.log where <second-arg> is the parameter passed to the consumer program which is an identifier for a consumer. This argument must be unique per consumer.
