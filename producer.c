@@ -1,105 +1,84 @@
-#include<string.h>
-#include<unistd.h>
-#include<stdlib.h>
-#include<stdio.h>
-#include<sys/types.h>
-#include<sys/stat.h>
-#include<fcntl.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include "scullbuffer.h"
 
 //#define DEBUG 1
-#define ITEM_SIZE 32
 
 /*The program takes the No of items to be produced and the item string as the parameter*/
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
+	int fd_sb, fd_log, noofitems = 0, res;
+	int item_size = SCULL_B_ITEM_SIZE;
+	char buffer[item_size];
+	char item[item_size];
+	char filename[255];
 
-	int fd, fd1, noofitems = 0, res;
-	char * buffer = NULL;
-	char * item = NULL;
-	char *filename = NULL;
-	int  perms = 0740;
-
+	//Process arguments
 	if (argc != 3) {
-		#ifdef DEBUG
-		printf("\r\nToo few arguments to producer\r\n");
-		#endif
+		printf("Too few arguments to producer. Usage:\n   producer <num_items> <item_type>\n");
+		return 0;
+	}
+	noofitems = atoi(argv[1]);
+	sprintf(filename, "Prod_%s.log", argv[2]);
+
+	//Open the scullbuffer device in write mode
+	fd_sb = open("/dev/scullbuffer", O_WRONLY);
+	if (fd_sb == -1) {
+		printf("Failed to open the scullbuffer device\n");
 		return 0;
 	}
 
-	//Open the file in write mode
-	fd = open("/dev/scullbuffer", O_WRONLY);
-
-	if (fd == -1) {
-		#ifdef DEBUG
-		printf("\r\nFailed to open the device\r\n");
-		#endif
-		return 0;
-	}
-
+	//Sleep for a moment to give each process time to open scullbuffer
 	sleep(1);
 
-	//Allocate an item of size 32 bytes	
-	buffer = (char *)malloc(ITEM_SIZE);
-	item = (char *)malloc(ITEM_SIZE);
-	filename = (char *)malloc(255);	
-	noofitems = atoi(argv[1]);
-
-	memset(filename, 0, 255);
-
-	sprintf(filename, "Prod%s.log", argv[2]);
-
-	#ifdef DEBUG
-	printf("\r\nThe name of prod file is %s\r\n", filename);
-	#endif
-
-	//Removing the file on every execution
+	//Clear and open the logfile
 	unlink(filename);
-
-	fd1 = open(filename, O_WRONLY|O_CREAT, perms);
-
-	if (fd1 == -1) {
-		#ifdef DEBUG
-		printf("\r\nFailed to open the prodlog file\r\n");
-		#endif
+	fd_log = open(filename, O_WRONLY|O_CREAT, 0664);
+	if (fd_log == -1) {
+		printf("Failed to open the producer log file: %s\n", filename);
 		goto cleanup;
+	} else {
+		#ifdef DEBUG
+		printf("The name of the new producer log file is %s\n", filename);
+		#endif
 	}
 
 	//Write the required number of items into the scull buffer
 	for (int i = 0; i < noofitems; i++) {
 		
-		sprintf(buffer, "%s000%d", argv[2], i);
-
+		//Write the item content to the producer temporary buffer
+		memset(buffer, '\0', item_size);
+		sprintf(buffer, "%s%d", argv[2], i);
 		#ifdef DEBUG
-		printf("\r\nThe buffer contents are %s\r\n", buffer);
+		printf("The buffer contents are %s\n", buffer);
 		#endif
 
-		res = write (fd, buffer, ITEM_SIZE);
-
-		if (res == ITEM_SIZE) {
-			memset(item, '\0', ITEM_SIZE);
+		//Write to scullbuffer and Log the result
+		res = write(fd_sb, buffer, item_size);
+		if (res == item_size) {
 			snprintf(item, strlen(buffer) + 1, "%s", buffer);
 			sprintf(item, "%s\n", item);
-			write (fd1, item, strlen(item));
+			write(fd_log, item, strlen(item));
 		}
 
 		#ifdef DEBUG
-		printf("\r\nThe number of bytes written are %d\r\n", res);
+		printf("The number of bytes written are %d\n", res);
 		#endif
 
-		if (!res)
+		//write returns 0 if there is no space left to write and no readers.
+		//write returns -1 if an unrecoverable error occurred.
+		if (res <= 0)
 			goto cleanup;
-			//Should we exit or continue to write the next item
-
-		if (res < 0)
-			//Should we exit??
-		
-		memset(buffer, '\0', ITEM_SIZE);
 	}
 
-	//free the buffer
 cleanup:
-	free(buffer);
-	free(filename);
-	close(fd);
-	close(fd1);
-	return 0;
+	close(fd_sb);
+	close(fd_log);
+	return res;
 }

@@ -1,95 +1,84 @@
-#include<errno.h>
-#include<string.h>
-#include<unistd.h>
-#include<stdlib.h>
-#include<stdio.h>
-#include<sys/types.h>
-#include<sys/stat.h>
-#include<fcntl.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include "scullbuffer.h"
 
 //#define DEBUG 1
-#define ITEM_SIZE 32
 
 int main(int argc, char **argv) {
 
-	int fd, fd1, noofitems = 0, res;
-	char *buffer = NULL;
-	char *item = NULL;
+	int fd_sb, fd_log, noofitems = 0, res;
+	int item_size = SCULL_B_ITEM_SIZE;
+	char buffer[item_size];
+	char item[item_size];
+	char filename[255];
 	
-	if (argc != 2) {
-		#ifdef DEBUG
-		printf("\r\nToo few arguments to producer\r\n");
-		#endif
+	//Process arguments
+	if (argc < 2) {
+		printf("Too few arguments to producer. Usage:\n   producer <num_items> [consumer_name]\n");
 		return 0;
 	}
+	noofitems = atoi(argv[1]);
+	if (argc == 3)
+		sprintf(filename, "Cons_%s.log", argv[2]);
+	else
+		sprintf(filename, "Cons.log");
 
-	//Open the file in write mode
-	//Which scullbuffer device to open from 0-3????
-	fd = open("/dev/scullbuffer", O_RDONLY);
-
-	if (fd == -1) {
+	//Open the scullbuffer device in write mode
+	fd_sb = open("/dev/scullbuffer", O_RDONLY);
+	if (fd_sb == -1) {
 		#ifdef DEBUG
-		printf("\r\nFailed to open the device %d\r\n", errno);
+		printf("Failed to open the device %d\n", errno);
 		#endif
 		goto cleanup;
 	}
 
+	//Sleep for a moment to give each process time to open scullbuffer
 	sleep(1);
 
-	//Allocate an item of size 32 bytes	
-	buffer = (char *)malloc(ITEM_SIZE);
-	item = (char *)malloc(ITEM_SIZE);
-	
-	noofitems = atoi(argv[1]);
-
-	//Deleting the file before every execution
-	unlink("cons.log");
-
-	fd1 = open("cons.log", O_WRONLY|O_CREAT, 0740);
-
-	if (fd1 == -1) {
-		#ifdef DEBUG
-		printf("\r\nFailed to open the conslog file\r\n");
-		#endif
+	//Clear and open the logfile
+	unlink(filename);
+	fd_log = open(filename, O_WRONLY|O_CREAT, 0664);
+	if (fd_log == -1) {
+		printf("Failed to open the consumer log file: %s\n", filename);
 		goto cleanup;
 	}
 
-	//Write the required number of items into the scull buffer
+	//Read the required number of items from the scull buffer
 	for (int i = 0; i < noofitems; i++) {
 	
 		#ifdef DEBUG
-		printf("\r\nBefore read call\r\n");
+		printf("Before read call\n");
 		#endif
 
-		res = read (fd, buffer, ITEM_SIZE);
-
-		if (res == ITEM_SIZE) {
-			memset(item, '\0', ITEM_SIZE);
+		//Read an item from scullbuffer into consumer buffer and log the result
+		memset(buffer, '\0', item_size);
+		res = read(fd_sb, buffer, item_size);
+		if (res == item_size) {
 			snprintf(item, strlen(buffer) + 1, "%s", buffer);
 			sprintf(item, "%s\n", item);
-			write (fd1, item, strlen(item));
-		}
-	
-		if (!res) {
-			//Should we exit or continue to write the next item
-		}
-
-		if (res < 0) {
-			//Should we exit??
-			goto cleanup;
+			write(fd_log, item, strlen(item));
 		}
 
 		#ifdef DEBUG
-		printf("\r\nThe buffer read is %s\r\n", buffer);
+		printf("The buffer read is %s\n", buffer);
 		#endif
-		memset(buffer, '\0', ITEM_SIZE);
+
+		//read returns 0 if there are no producers and no data left to read
+		//read returns -1 if an unrecoverable error occurred.
+		if (res <= 0)
+			goto cleanup;
 	}
 
-	//free the buffer
 cleanup:
-	free(buffer);
-	close(fd);
-	close(fd1);
+	close(fd_sb);
+	close(fd_log);
 
 	return 0;
 }
