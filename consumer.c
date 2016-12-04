@@ -13,7 +13,8 @@
 int main(int argc, char **argv) {
 
 	int fd, fd1, noofitems = 0, res;
-	char * buffer = NULL;
+	char *buffer = NULL;
+	char *item = NULL;
 	
 	if (argc != 2) {
 		#ifdef DEBUG
@@ -37,6 +38,7 @@ int main(int argc, char **argv) {
 
 	//Allocate an item of size 32 bytes	
 	buffer = (char *)malloc(ITEM_SIZE);
+	item = (char *)malloc(ITEM_SIZE);
 	
 	noofitems = atoi(argv[1]);
 
@@ -61,8 +63,12 @@ int main(int argc, char **argv) {
 
 		res = read (fd, buffer, ITEM_SIZE);
 
-		if (res == ITEM_SIZE)	
-			write (fd1, buffer, strlen(buffer));
+		if (res == ITEM_SIZE) {
+			memset(item, '\0', ITEM_SIZE);
+			snprintf(item, strlen(buffer) + 1, "%s", buffer);
+			sprintf(item, "%s\n", item);
+			write (fd1, item, strlen(item));
+		}
 	
 		if (!res) {
 			//Should we exit or continue to write the next item

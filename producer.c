@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
 
 	int fd, fd1, noofitems = 0, res;
 	char * buffer = NULL;
+	char * item = NULL;
 	char *filename = NULL;
 	int  perms = 0740;
 
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
 
 	//Allocate an item of size 32 bytes	
 	buffer = (char *)malloc(ITEM_SIZE);
+	item = (char *)malloc(ITEM_SIZE);
 	filename = (char *)malloc(255);	
 	noofitems = atoi(argv[1]);
 
@@ -64,7 +66,7 @@ int main(int argc, char **argv) {
 	//Write the required number of items into the scull buffer
 	for (int i = 0; i < noofitems; i++) {
 		
-		sprintf(buffer, "%s000%d\r\n", argv[2], i);
+		sprintf(buffer, "%s000%d", argv[2], i);
 
 		#ifdef DEBUG
 		printf("\r\nThe buffer contents are %s\r\n", buffer);
@@ -72,8 +74,12 @@ int main(int argc, char **argv) {
 
 		res = write (fd, buffer, ITEM_SIZE);
 
-		if (res == ITEM_SIZE)
-			write (fd1, buffer, strlen(buffer));
+		if (res == ITEM_SIZE) {
+			memset(item, '\0', ITEM_SIZE);
+			snprintf(item, strlen(buffer) + 1, "%s", buffer);
+			sprintf(item, "%s\n", item);
+			write (fd1, item, strlen(item));
+		}
 
 		#ifdef DEBUG
 		printf("\r\nThe number of bytes written are %d\r\n", res);
