@@ -111,8 +111,11 @@ static int scull_b_release(struct inode *inode, struct file *filp)
 	struct scull_buffer *dev = filp->private_data;
 
 	down(&dev->sem);
-	if (filp->f_mode & FMODE_READ)
+	if (filp->f_mode & FMODE_READ) {
 		dev->nreaders--;
+		if (dev->nreaders == 0)
+			wake_up_interruptible_all(&dev->outq);
+	}
 	if (filp->f_mode & FMODE_WRITE) {
 		dev->nwriters--;
 		if (dev->nwriters == 0) {
