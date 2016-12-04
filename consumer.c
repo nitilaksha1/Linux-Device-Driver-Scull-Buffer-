@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 		goto cleanup;
 	}
 
-	sleep(3);
+	sleep(1);
 
 	//Allocate an item of size 32 bytes	
 	buffer = (char *)malloc(ITEM_SIZE);
