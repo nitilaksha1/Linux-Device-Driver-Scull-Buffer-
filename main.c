@@ -41,12 +41,13 @@
  */
 
 struct scull_buffer {
-        wait_queue_head_t inq, outq;       /* read and write queues */
         char *buffer, *end;                /* begin of buf, end of buf */
         int buffersize;                    /* used in pointer arithmetic */
         char *rp, *wp;                     /* where to read, where to write */
         int nreaders, nwriters;            /* number of openings for r/w */
         struct semaphore sem;              /* mutual exclusion semaphore */
+        struct semaphore sem_itemavail;    /* */
+        struct semaphore sem_spaceavail;   /* */
         struct cdev cdev;                  /* Char device structure */
 };
 
@@ -55,8 +56,6 @@ static int scull_b_nr_devs = SCULL_B_NR_DEVS;	/* number of buffer devices */
 dev_t scull_b_devno;			/* Our first device number */
 
 static struct scull_buffer *scull_b_devices;
-
-static int spacefree(struct scull_buffer *dev);
 
 #define init_MUTEX(_m) sema_init(_m, 1);
 
@@ -84,6 +83,8 @@ static int scull_b_open(struct inode *inode, struct file *filp)
 
 	if (down_interruptible(&dev->sem))
 		return -ERESTARTSYS;
+
+	//TODO: init buffers in module_init code
 	if (!dev->buffer) {
 		/* allocate the buffer */
 		dev->buffer = kmalloc(nitems * SCULL_B_ITEM_SIZE, GFP_KERNEL);
@@ -92,7 +93,7 @@ static int scull_b_open(struct inode *inode, struct file *filp)
 			return -ENOMEM;
 		}
 	}
-	dev->buffersize = (nitems+1) * SCULL_B_ITEM_SIZE;
+	dev->buffersize = nitems * SCULL_B_ITEM_SIZE;
 	dev->end = dev->buffer + dev->buffersize;
 	dev->rp = dev->wp = dev->buffer; /* rd and wr from the beginning */
 
@@ -113,15 +114,9 @@ static int scull_b_release(struct inode *inode, struct file *filp)
 	down(&dev->sem);
 	if (filp->f_mode & FMODE_READ) {
 		dev->nreaders--;
-		if (dev->nreaders == 0)
-			wake_up_interruptible_all(&dev->outq);
 	}
 	if (filp->f_mode & FMODE_WRITE) {
 		dev->nwriters--;
-		if (dev->nwriters == 0) {
-			/* last writer, wake up any readers */
-			wake_up_interruptible_all(&dev->inq);
-		}
 	}
 	if (dev->nreaders + dev->nwriters == 0) {
 		kfree(dev->buffer);
@@ -138,101 +133,89 @@ static ssize_t scull_b_read(struct file *filp, char __user *buf, size_t count, l
 {
 	struct scull_buffer *dev = filp->private_data;
 
-	if (down_interruptible(&dev->sem))
-		return -ERESTARTSYS;
-
-	PDEBUG("\" (scull_b_read) dev->wp:%p    dev->rp:%p\" \n",dev->wp,dev->rp);
-
-	while (dev->rp == dev->wp) { /* nothing to read */
-		up(&dev->sem); /* release the lock */
-		if (filp->f_flags & O_NONBLOCK)
-			return -EAGAIN;
-
-		/*If the buffer is empty and no producer have scullbuffer open*/
-		if (!dev->nwriters)
-			return 0;
-
-		PDEBUG("\"%s\" reading: going to sleep\n", current->comm);
-		if (wait_event_interruptible(dev->inq, ((dev->rp != dev->wp) || (dev->nwriters == 0))))
-			return -ERESTARTSYS; /* signal: tell the fs layer to handle it */
-		/* otherwise loop, but first reacquire the lock */
+	/* check if an item is available without blocking */
+	if (down_trylock(&dev->sem_itemavail)) {
+		// BUFFER EMPTY
+		/* if there are no writers exit */ 
 		if (down_interruptible(&dev->sem))
 			return -ERESTARTSYS;
+		if (!dev->nwriters) {
+			up(&dev->sem);
+			return 0;
+		}
+		up (&dev->sem);
+
+		/* if there are writers, wait for an item to become available */
+		if (down_interruptible(&dev->sem_itemavail))
+			return -ERESTARTSYS;
+	}
+	// BUFFER NOT EMPTY
+		
+	PDEBUG("\" (scull_b_read) dev->wp:%p    dev->rp:%p\" \n",dev->wp,dev->rp);
+
+	/* check correct flags */
+	if (filp->f_flags & O_NONBLOCK) {
+		up(&dev->sem_itemavail); //we didn't actually consume the item
+		return -EAGAIN;
+	}
+
+	// <CRITICAL consume an item from the buffer
+	if (down_interruptible(&dev->sem)) {
+		up(&dev->sem_itemavail); //we didn't actually consume the item
+		return -ERESTARTSYS;
 	}
 
 	if (copy_to_user(buf, dev->rp, count)) {
-		up (&dev->sem);
+		up(&dev->sem);
+		up(&dev->sem_itemavail); //we didn't actually consume the item
 		return -EFAULT;
 	}
 	dev->rp += count;
 	if (dev->rp == dev->end)
 		dev->rp = dev->buffer; /* wrapped */
 	up (&dev->sem);
+	// CRITICAL\>
 
-	/* finally, awake any writers and return */
-	wake_up_interruptible(&dev->outq);
+	/* signal writers that space is available */
+	up(&dev->sem_spaceavail);
+
 	PDEBUG("\"%s\" did read %li bytes\n",current->comm, (long)count);
 	return count;
-}
-
-/* Wait for space for writing; caller must hold device semaphore.  On
- * error the semaphore will be released before returning. */
-static int scull_getwritespace(struct scull_buffer *dev, struct file *filp)
-{
-	while (spacefree(dev) == 0) { /* full */
-		DEFINE_WAIT(wait);
-
-		up(&dev->sem);
-		if (filp->f_flags & O_NONBLOCK)
-			return -EAGAIN;
-
-		/*Buffer is full and no consumers have opened scullbuffer*/
-		if (!dev->nreaders)
-			return NO_READERS;
-
-		PDEBUG("\"%s\" writing: going to sleep\n",current->comm);
-		prepare_to_wait(&dev->outq, &wait, TASK_INTERRUPTIBLE);
-		if (spacefree(dev) == 0)
-			schedule();
-		finish_wait(&dev->outq, &wait);
-		if (signal_pending(current))
-			return -ERESTARTSYS; /* signal: tell the fs layer to handle it */
-		if (down_interruptible(&dev->sem))
-			return -ERESTARTSYS;
-	}
-
-	return 0;
-}
-
-/* How much space is free? */
-static int spacefree(struct scull_buffer *dev)
-{
-	if (dev->rp == dev->wp)
-		return dev->buffersize - 1;
-	return ((dev->rp + dev->buffersize - dev->wp) % dev->buffersize) - SCULL_B_ITEM_SIZE;
 }
 
 static ssize_t scull_b_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
 {
 	struct scull_buffer *dev = filp->private_data;
-	int result;
 
-	if (down_interruptible(&dev->sem))
-		return -ERESTARTSYS;
+	/* check if space is available without blocking */
+	if (down_trylock(&dev->sem_spaceavail)) {
+		// BUFFER FULL
+		/* if there are no readers exit */ 
+		if (down_interruptible(&dev->sem))
+			return -ERESTARTSYS;
+		if (!dev->nreaders) {
+			up (&dev->sem);
+			return 0;
+		}
+		up (&dev->sem);
 
-	/* Make sure there's space to write */
-	result = scull_getwritespace(dev, filp);
-
-	/*In case no consumers are present to free the buffer*/
-	if (result == NO_READERS)
-		return 0;
-
-	if (result)
-		return result; /* scull_getwritespace called up(&dev->sem) */
+		/* if there are readers, wait for space to become available */
+		if (down_interruptible(&dev->sem_spaceavail))
+			return -ERESTARTSYS;
+	}
+	// BUFFER NOT FULL
 
 	PDEBUG("Going to accept %li bytes to %p from %p\n", (long)count, dev->wp, buf);
+
+	//CRITICAL deposit item into buffer
+	if (down_interruptible(&dev->sem)) {
+		up(&dev->sem_spaceavail); //we didn't actually consume the space
+		return -ERESTARTSYS;
+	}
+
 	if (copy_from_user(dev->wp, buf, count)) {
-		up (&dev->sem);
+		up(&dev->sem);            //give up access to the buffer
+		up(&dev->sem_spaceavail); //we didn't actually consume the space
 		return -EFAULT;
 	}
 	dev->wp += count;
@@ -240,33 +223,13 @@ static ssize_t scull_b_write(struct file *filp, const char __user *buf, size_t c
 		dev->wp = dev->buffer; /* wrapped */
 	PDEBUG("\" (scull_b_write) dev->wp:%p    dev->rp:%p\" \n",dev->wp,dev->rp);
 	up(&dev->sem);
+	//end CRITICAL
 
-	/* finally, awake any reader */
-	wake_up_interruptible(&dev->inq);  /* blocked in read() and select() */
+	/* finally, awake a reader */
+	up(&dev->sem_itemavail);
 
 	PDEBUG("\"%s\" did write %li bytes\n",current->comm, (long)count);
 	return count;
-}
-
-static unsigned int scull_b_poll(struct file *filp, poll_table *wait)
-{
-	struct scull_buffer *dev = filp->private_data;
-	unsigned int mask = 0;
-
-	/*
-	 * The buffer is circular; it is considered full
-	 * if "wp" is right behind "rp" and empty if the
-	 * two are equal.
-	 */
-	down(&dev->sem);
-	poll_wait(filp, &dev->inq,  wait);
-	poll_wait(filp, &dev->outq, wait);
-	if (dev->rp != dev->wp)
-		mask |= POLLIN | POLLRDNORM;	/* readable */
-	if (spacefree(dev))
-		mask |= POLLOUT | POLLWRNORM;	/* writable */
-	up(&dev->sem);
-	return mask;
 }
 
 /*
@@ -278,7 +241,6 @@ struct file_operations scull_buffer_fops = {
 	.llseek =	no_llseek,
 	.read =		scull_b_read,
 	.write =	scull_b_write,
-	.poll =		scull_b_poll,
 	.open =		scull_b_open,
 	.release =	scull_b_release,
 };
@@ -347,9 +309,9 @@ int scull_b_init_module(void)
 	}
 	memset(scull_b_devices, 0, scull_b_nr_devs * sizeof(struct scull_buffer));
 	for (i = 0; i < scull_b_nr_devs; i++) {
-		init_waitqueue_head(&(scull_b_devices[i].inq));
-		init_waitqueue_head(&(scull_b_devices[i].outq));
 		init_MUTEX(&scull_b_devices[i].sem);
+		sema_init(&scull_b_devices[i].sem_itemavail, 0);
+		sema_init(&scull_b_devices[i].sem_spaceavail, nitems);
 		scull_b_setup_cdev(scull_b_devices + i, i);
 	}
 
