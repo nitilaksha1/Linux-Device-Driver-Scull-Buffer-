@@ -1,68 +1,46 @@
 
-Running Instructions:
------------------------
-1. Make sure that the device is unloaded or the device with same name doesn't exist. Type "sudo ./scull_unload".
-2. Load the scull buffer using command "sudo ./scull_load". This will create a device called /dev/scullbuffer.
-3. In case the number of items have to be specified by the user then type "sudo ./scull_load <nitems>" where nitems is a placeholder.
-4. Type make command to compile all relevant files.
-5. The test cases are present in a file called testcase.sh. 
-6. This script takes the test case number as the parameter. To execute a test case type "./testcase.sh <testcasenumber>" where <testcasenumber> is placeholde for testcase number.
+## Running Instructions:
+* Make sure that the device is unloaded or the device with same name doesn't exist. Type "sudo ./scull_unload".
+* Load the scull buffer using command "sudo ./scull_load". This will create a device called /dev/scullbuffer.
+* In case the number of items have to be specified by the user then type "sudo ./scull_load <nitems>" where nitems is a placeholder.
+* Type make command to compile all relevant files.
+* The test cases are present in a file called testcase.sh. 
+* This script takes the test case number as the parameter. To execute a test case type "./testcase.sh <testcasenumber>" where <testcasenumber> is placeholde for testcase number.
 
-Output Format:
-----------------
-
-1. The producers each write the item they have produced into their respective log files. 
-2. The log file of a producer has the following format: Prod<third-arg>.log where the <third-arg> is the parameter passed to the producer which is the name of   item that a particular producer will produce. For example: if producer writes items called "blue" then its output would be in file Prodblue.log.
-3. The consumers each write the item they have consumed into their respective log files.
+## Output Format:
+* The producers each write the item they have produced into their respective log files. 
+* The log file of a producer has the following format: Prod<third-arg>.log where the <third-arg> is the parameter passed to the producer which is the name of   item that a particular producer will produce. For example: if producer writes items called "blue" then its output would be in file Prodblue.log.
+* The consumers each write the item they have consumed into their respective log files.
    The log file of a consumer has the following format: Cons<second-arg>.log where <second-arg> is the parameter passed to the consumer program which is an id   entifier for a consumer. This argument must be unique per consumer.
 
-Test Case Description:
------------------------
+## Test Case Description:
 
-1. 	Testcase #1: 
-	-------------
+### Testcase #1: 
+This test case consists of a single producer consumer each of which produce and consume 50 items respectively.
 
-	This test case consists of a single producer consumer each of which produce and consume 50 items respectively.
+### Execution: 
+Type "./testcase.sh 1" to execute this test case. The producer output can be seen in file Prod_case1_red.log and the consumer output can be seen in the file Cons_case1.log.
+
+### Expected Output: 
+The producer and consumer must exit normally and the consumer must consume all the 50 items.   
+
+### Testcase #2: 
+This test case consists of a single producer and consumer. The producer will try to produce 50 items before exiting and the consumer consumes only 10 items and exits. 
    
-   	Expected Output: 
-	----------------
+### Execution:
+Type "./testcase.sh 2" to execute this test case. The producer output can be seen in file Prod_case2_red.log and the consumer output can be seen in the file Cons_case2.log.
 
-	The producer and consumer must exit normally and the consumer must consume all the 50 items.
+### Expected Output: 
+Depending on the size of the scull buffer the producer can deposit (scullbuffersize/32) + 10 items into the scull buffer and exit once the consumer exits. The consumer will read 10 items and exit.
    
-	Running instructions: 
-	----------------------
-	
-	Type "./testcase.sh 1" to execute this test case. The producer output can be seen in file Prod_case1_red.log and the consumer output can be seen in the fi	  le Cons_case1.log.
+### Testcase #3:
+This test case consists of a single producer and consumer. The producer produces 50 items before exiting and the consumer consumes 100 items before exiting.
 
-2. 	Testcase #2: 
-	-------------
+### Execution:
+Type "./testcase.sh 3" to execute this test case. The producer output can be seen in file Prod_case3_red.log and the consumer output can be seen in the file Cons_case3.log.
 
-	This test case consists of a single producer and consumer. The producer will try to produce 50 items before exiting and the consumer consumes only 10 item	  s and exits. 
-   
-	Expected Output: 
-	-----------------
-
-	Depending on the size of the scull buffer the producer can deposit (scullbuffersize/32) + 10 items into the scull buffer and exit once the consumer exits.	  The consumer will read 10 items and exit.
-   
-	Running Instructions:
-	----------------------
-
-	Type "./testcase.sh 2" to execute this test case. The producer output can be seen in file Prod_case2_red.log and the consumer output can be seen in the fi	  le Cons_case2.log.
-
-3.	Testcase #3:
-	-------------
-
-	This test case consists of a single producer and consumer. The producer produces 50 items before exiting and the consumer consumes 100 items before exitin	  g.
-
-	Expected Output:
-	-----------------
-
-	The producer will write 50 items into the scull buffer regardless of the scull buffer size. The consumer will consumer 50 items before exiting since there 	  are no producers.
-
-	Running Instructions:
-	----------------------
-
-	Type "./testcase.sh 3" to execute this test case. The producer output can be seen in file Prod_case3_red.log and the consumer output can be seen in the fi	  le Cons_case3.log.
+### Expected Output:
+The producer will write 50 items into the scull buffer regardless of the scull buffer size. The consumer will consumer 50 items before exiting since there are no producers.
 
 4.	Testcase #4:
 	-------------
