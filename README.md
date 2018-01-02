@@ -25,7 +25,8 @@ Type "./testcase.sh 1" to execute this test case. The producer output can be see
 ### Expected Output: 
 The producer and consumer must exit normally and the consumer must consume all the 50 items.   
 
-### Testcase #2: 
+### Testcase #2:
+--------------------
 This test case consists of a single producer and consumer. The producer will try to produce 50 items before exiting and the consumer consumes only 10 items and exits. 
    
 ### Execution:
@@ -35,6 +36,7 @@ Type "./testcase.sh 2" to execute this test case. The producer output can be see
 Depending on the size of the scull buffer the producer can deposit (scullbuffersize/32) + 10 items into the scull buffer and exit once the consumer exits. The consumer will read 10 items and exit.
    
 ### Testcase #3:
+--------------------
 This test case consists of a single producer and consumer. The producer produces 50 items before exiting and the consumer consumes 100 items before exiting.
 
 ### Execution:
@@ -43,32 +45,26 @@ Type "./testcase.sh 3" to execute this test case. The producer output can be see
 ### Expected Output:
 The producer will write 50 items into the scull buffer regardless of the scull buffer size. The consumer will consumer 50 items before exiting since there are no producers.
 
-4.	Testcase #4:
-	-------------
+### Testcase #4:
+-------------
+This test consists of two producers and one consumer. Each producer produces 50 items and the consumer will try to consumer 200 items before exiting.
 
-	This test consists of two producers and one consumer. Each producer produces 50 items and the consumer will try to consumer 200 items before exiting.
+### Execution:
+----------------------
+Type "./testcase.sh 4" to execute this test case. The producer output can be seen in file Prod_case4_red.log and Prod_case4_black.log. The consumer output can be seen in Cons_case4.log.
 
-	Expected Output:
-	-----------------
+### Expected Output:
+-----------------
+Both the items will produce 50 items regardless of the scullbuffer size and the consumer will exit after consuming 100 items.
 
-	Both the items will produce 50 items regardless of the scullbuffer size and the consumer will exit after consuming 100 items.
+### Testcase #5:
+------------
+This test consists of one producer and two consumers. The producer will produce 50 items and the two consumers together (or individually) will consume the 50 items.
 
-	Running Instructions:
-	----------------------
+### Execution:
+---------------------
+Type "./testcase.sh 5" to execute this test case. The producer output can be seen in the file Prod_case5_red.log. The consumers output can be seen in the two log files Cons_case5_1.log and Cons_case5_2.log.
 
-	Type "./testcase.sh 4" to execute this test case. The producer output can be seen in file Prod_case4_red.log and Prod_case4_black.log. The consumer output 	  can be seen in Cons_case4.log.
-
-5.	Testcase #5:
-	------------
-
-	This test consists of one producer and two consumers. The producer will produce 50 items and the two consumers together (or individually) will consume th	  e 50 items.
-
-	Expected Output:
-	----------------
-
-	The producer will produce 50 items regardless of the scullbuffer size. The consumers will consumer variable number of items that add upto 50 items combine	  d.
-
-	Running Instructions:
-	---------------------
-
-	Type "./testcase.sh 5" to execute this test case. The producer output can be seen in the file Prod_case5_red.log. The consumers output can be seen in the 	  two log files Cons_case5_1.log and Cons_case5_2.log.
+### Expected Output:
+----------------
+The producer will produce 50 items regardless of the scullbuffer size. The consumers will consumer variable number of items that add upto 50 items combined.
