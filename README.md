@@ -1,4 +1,16 @@
 
+## About:
+ScullBuffer is a character device, which provides a bounded buffer of fixed size to synchronize any number of producer and consumer processes. Scullbuffer implements the character device interface. Both producer and consumer processes for the buffer will first call open() to access the device. At end of their use of the device, they will call release() to indicate that the session has ended. The buffer will store multiple items, where each “item” will be a fixed size block of 32-Bytes.
+
+## Requirements:
+* A producer starts waiting (i.e. goes to sleep in the kernel) because the buffer is full and there are some
+consumer processes which still have the device open for reading.
+* Suppose that sometime later all these consumer processes release the device without removing an item from the buffer and no consumers that have scullbuffer open for reading are left; at this point, any waiting producers must be woken up (the value 0 will be returned to the producer process).
+* A consumer starts waiting (i.e. goes to sleep in the kernel) because the buffer is empty and there are
+some producer processes which still have the device open for writing.
+* Suppose that sometime later all these producer processes release the device without depositing an item
+into the buffer and no producers that have the device open for writing are left; at this point, any waiting consumers must be woken up (the value 0 will be returned to the consumer process)
+
 ## Running Instructions:
 * Make sure that the device is unloaded or the device with same name doesn't exist. Type "sudo ./scull_unload".
 * Load the scull buffer using command "sudo ./scull_load". This will create a device called /dev/scullbuffer.
