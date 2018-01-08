@@ -28,7 +28,6 @@ into the buffer and no producers that have the device open for writing are left;
 ## Test Case Description:
 
 ### Testcase #1: 
---------------------
 This test case consists of a single producer consumer each of which produce and consume 50 items respectively.
 
 ### Execution: 
@@ -38,7 +37,6 @@ Type "./testcase.sh 1" to execute this test case. The producer output can be see
 The producer and consumer must exit normally and the consumer must consume all the 50 items.   
 
 ### Testcase #2:
---------------------
 This test case consists of a single producer and consumer. The producer will try to produce 50 items before exiting and the consumer consumes only 10 items and exits. 
    
 ### Execution:
@@ -48,7 +46,6 @@ Type "./testcase.sh 2" to execute this test case. The producer output can be see
 Depending on the size of the scull buffer the producer can deposit (scullbuffersize/32) + 10 items into the scull buffer and exit once the consumer exits. The consumer will read 10 items and exit.
    
 ### Testcase #3:
---------------------
 This test case consists of a single producer and consumer. The producer produces 50 items before exiting and the consumer consumes 100 items before exiting.
 
 ### Execution:
@@ -58,7 +55,6 @@ Type "./testcase.sh 3" to execute this test case. The producer output can be see
 The producer will write 50 items into the scull buffer regardless of the scull buffer size. The consumer will consumer 50 items before exiting since there are no producers.
 
 ### Testcase #4:
--------------
 This test consists of two producers and one consumer. Each producer produces 50 items and the consumer will try to consumer 200 items before exiting.
 
 ### Execution:
@@ -68,7 +64,6 @@ Type "./testcase.sh 4" to execute this test case. The producer output can be see
 Both the items will produce 50 items regardless of the scullbuffer size and the consumer will exit after consuming 100 items.
 
 ### Testcase #5:
-------------
 This test consists of one producer and two consumers. The producer will produce 50 items and the two consumers together (or individually) will consume the 50 items.
 
 ### Execution:
